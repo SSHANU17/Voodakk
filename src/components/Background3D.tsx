@@ -94,28 +94,64 @@ function FloatingChar({
   );
 }
 
-function Particles({ count = 100 }) {
-  const points = useMemo(() => {
+function Particles({ count = 200 }) {
+  const points = useRef<THREE.Points>(null);
+  
+  const particles = useMemo(() => {
     const p = new Float32Array(count * 3);
+    const s = new Float32Array(count); // speed/phase
     for (let i = 0; i < count; i++) {
-      p[i * 3] = (Math.random() - 0.5) * 60;
-      p[i * 3 + 1] = (Math.random() - 0.5) * 60;
-      p[i * 3 + 2] = (Math.random() - 0.5) * 60;
+      const r = Math.random() * 40 + 10;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI * 2;
+      
+      p[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      p[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      p[i * 3 + 2] = r * Math.cos(phi);
+      s[i] = Math.random() * 0.5 + 0.2;
     }
-    return p;
+    return { p, s };
   }, [count]);
 
+  useFrame((state) => {
+    if (points.current) {
+      const t = state.clock.getElapsedTime();
+      const positions = points.current.geometry.attributes.position.array as Float32Array;
+      
+      for (let i = 0; i < count; i++) {
+        const x = positions[i * 3];
+        const y = positions[i * 3 + 1];
+        const z = positions[i * 3 + 2];
+        
+        // Swirl motion
+        const dist = Math.sqrt(x*x + z*z);
+        const angle = Math.atan2(z, x) + 0.002 * particles.s[i];
+        
+        positions[i * 3] = dist * Math.cos(angle);
+        positions[i * 3 + 1] += Math.sin(t * particles.s[i] + i) * 0.01;
+        positions[i * 3 + 2] = dist * Math.sin(angle);
+      }
+      points.current.geometry.attributes.position.needsUpdate = true;
+    }
+  });
+
   return (
-    <points>
+    <points ref={points}>
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
           count={count}
-          array={points}
+          array={particles.p}
           itemSize={3}
         />
       </bufferGeometry>
-      <pointsMaterial size={0.04} color="#b08d4a" transparent opacity={0.2} />
+      <pointsMaterial 
+        size={0.06} 
+        color="#ff4e00" 
+        transparent 
+        opacity={0.3} 
+        blending={THREE.AdditiveBlending}
+      />
     </points>
   );
 }
